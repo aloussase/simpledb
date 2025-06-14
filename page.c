@@ -35,19 +35,15 @@ void page_free(Page *page)
 
 void page_set_int(Page *page, size_t offset, int value)
 {
-    if (!page_ensure_capacity(page, offset + sizeof(int)))
-        return;
-    memcpy(page->data + offset, &value, sizeof(int));
-    if (offset + sizeof(int) > page->size)
-        page->size = offset + sizeof(int);
+    page_set_bytes(page, offset, &value, sizeof(int));
 }
 
-int page_get_int(Page *page, size_t offset)
+int page_get_int(Page *page, size_t offset, int *out_value)
 {
-    int value = 0;
-    if (offset + sizeof(int) <= page->size)
-        memcpy(&value, page->data + offset, sizeof(int));
-    return value;
+    if (offset + sizeof(int) > page->size)
+        return PAGE_ERROR_GET_INT;
+    memcpy(out_value, page->data + offset, sizeof(int));
+    return PAGE_ERROR_NONE;
 }
 
 void page_set_bytes(Page *page, size_t offset, const void *src, size_t len)
@@ -59,10 +55,12 @@ void page_set_bytes(Page *page, size_t offset, const void *src, size_t len)
         page->size = offset + len;
 }
 
-void page_get_bytes(Page *page, size_t offset, void *dest, size_t len)
+int page_get_bytes(Page *page, size_t offset, void *dest, size_t len)
 {
-    if (offset + len <= page->size)
-        memcpy(dest, page->data + offset, len);
+    if (offset + len > page->size)
+        return PAGE_ERROR_GET_BYTES;
+    memcpy(dest, page->data + offset, len);
+    return PAGE_ERROR_NONE;
 }
 
 void page_set_string(Page *page, size_t offset, const char *str)
@@ -71,16 +69,11 @@ void page_set_string(Page *page, size_t offset, const char *str)
     page_set_bytes(page, offset, str, len);
 }
 
-void page_get_string(Page *page, size_t offset, char *buf, size_t buflen)
+int page_get_string(Page *page, size_t offset, char *buf, size_t buflen)
 {
-    if (offset < page->size)
-    {
-        strncpy(buf, page->data + offset, buflen - 1);
-        buf[buflen - 1] = '\0';
-    }
-    else
-    {
-        if (buflen > 0)
-            buf[0] = '\0';
-    }
+    if (offset >= page->size)
+        return PAGE_ERROR_GET_STRING;
+    strncpy(buf, page->data + offset, buflen - 1);
+    buf[buflen - 1] = '\0';
+    return PAGE_ERROR_NONE;
 }
